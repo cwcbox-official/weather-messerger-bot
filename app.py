@@ -68,7 +68,7 @@ def send_message(recipient_id, message_text):
 def get_weather(location_id):
     url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization={CWB_API_KEY}&locationId={location_id}"
     try:
-        res = requests.get(url).json()
+       res = requests.get(url, verify=False).json()
         elements = res["records"]["locations"][0]["location"][0]["weatherElement"]
         time_slots = elements[0]["time"][:7]
         forecast = ""
