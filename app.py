@@ -66,7 +66,7 @@ def send_message(recipient_id, message_text):
     requests.post("https://graph.facebook.com/v13.0/me/messages", params=params, headers=headers, json=data)
 
 def get_weather(location_id):
-    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089?Authorization={CWB_API_KEY}&locationName={city_name}"
+    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089?Authorization={CWB_API_KEY}&locationName={city_map}"
     try:
         print("📡 Request URL:", url)
         res = requests.get(url, verify=False)  # disable SSL verify for workaround
