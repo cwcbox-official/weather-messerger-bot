@@ -40,7 +40,20 @@ def fetch_weather(city_name):
     try:
         res = requests.get(url, verify=False)
         data = res.json()
-        locations = data['records']['locations'][0]['location']
+
+if not data.get("success", False):
+    return f"❌ API 失敗，請檢查金鑰或伺服器狀態"
+
+records = data.get("records", {})
+locations_list = records.get("locations", [])
+
+if not locations_list:
+    return f"❌ 查無地區「{city_name}」資料，請確認名稱或稍後再試"
+
+location_data = locations_list[0].get("location", [])
+if not location_data:
+    return f"❌ 地區資料無法解析，可能氣象局尚未提供該地區資料"
+
         if not locations:
             return f"找不到「{city_name}」的氣象資料。請輸入正確縣市名。"
 
