@@ -38,7 +38,7 @@ def get_weather_reply(message):
 def fetch_weather(city_name):
     url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091?Authorization={CWB_API_KEY}&locationName={city_name}"
     try:
-        res = requests.get(url, verify='cwa_bundle.crt')
+        res = requests.get(url)  # 或 verify=True，這是預設值
         data = res.json()
         locations = data['records']['locations'][0]['location']
         if not locations:
