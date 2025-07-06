@@ -1,85 +1,75 @@
-from flask import Flask, request
-import requests
+
 import os
+import json
+import requests
+from flask import Flask, request
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
-PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-CWB_API_KEY = os.environ.get("CWB_API_KEY")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
+CWB_API_KEY = os.getenv("CWB_API_KEY")
+CWB_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091"
 
-city_map = {
-    "台北市": "F-D0047-063",
-    "新北市": "F-D0047-071",
-    "桃園市": "F-D0047-007",
-    "台中市": "F-D0047-075",
-    "台南市": "F-D0047-079",
-    "高雄市": "F-D0047-083",
-    "基隆市": "F-D0047-067",
-    "新竹市": "F-D0047-011",
-    "嘉義市": "F-D0047-015",
-    "新竹縣": "F-D0047-005",
-    "苗栗縣": "F-D0047-009",
-    "彰化縣": "F-D0047-017",
-    "南投縣": "F-D0047-073",
-    "雲林縣": "F-D0047-023",
-    "嘉義縣": "F-D0047-027",
-    "屏東縣": "F-D0047-087",
-    "宜蘭縣": "F-D0047-031",
-    "花蓮縣": "F-D0047-035",
-    "台東縣": "F-D0047-039",
-    "澎湖縣": "F-D0047-043",
-    "金門縣": "F-D0047-047",
-    "連江縣": "F-D0047-051"
-}
+def get_weather(location_name):
+    try:
+        params = {
+            "Authorization": CWB_API_KEY,
+            "format": "JSON",
+            "locationName": location_name
+        }
+        res = requests.get(CWB_API_URL, params=params)
+        data = res.json()
+        locations = data["records"]["locations"][0]["location"]
+        location = next((loc for loc in locations if loc["locationName"] == location_name), None)
+        if not location:
+            return f"⚠️ 找不到地點 {location_name} 的氣象資料"
 
-@app.route("/", methods=['GET'])
+        weather_elements = location["weatherElement"]
+        weather = [f"📍 {location_name} 7天天氣預報："]
+        for i in range(7):
+            date = weather_elements[0]["time"][i]["startTime"].split("T")[0]
+            wx = weather_elements[0]["time"][i]["elementValue"][0]["value"]
+            min_temp = weather_elements[1]["time"][i]["elementValue"][0]["value"]
+            max_temp = weather_elements[2]["time"][i]["elementValue"][0]["value"]
+            weather.append(f"{date}：{wx}，🌡️ {min_temp}°C - {max_temp}°C")
+        return "\n".join(weather)
+    except Exception as e:
+        return f"❌ 取得氣象資料失敗：{str(e)}"
+
+@app.route("/", methods=["GET"])
 def verify():
-    if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.verify_token") == VERIFY_TOKEN:
-        return request.args.get("hub.challenge")
-    return "驗證失敗", 403
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
+    if token == VERIFY_TOKEN:
+        return challenge
+    return "驗證失敗"
 
-@app.route("/", methods=['POST'])
+@app.route("/", methods=["POST"])
 def webhook():
     data = request.get_json()
-    for entry in data.get("entry", []):
-        for messaging_event in entry.get("messaging", []):
-            sender_id = messaging_event["sender"]["id"]
-            if messaging_event.get("message"):
-                text = messaging_event["message"].get("text")
-                if text == "氣象預報":
-                    send_message(sender_id, "請輸入縣市名稱（例如：台北市）")
-                elif text in city_map:
-                    forecast = get_weather(city_map[text])
-                    send_message(sender_id, forecast)
-                else:
-                    send_message(sender_id, "請輸入正確的縣市名稱")
-    return "ok", 200
-
-def send_message(recipient_id, message_text):
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "recipient": {"id": recipient_id},
-        "message": {"text": message_text}
-    }
-    requests.post("https://graph.facebook.com/v13.0/me/messages", params=params, headers=headers, json=data)
-
-def get_weather(location_id):
-    url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089?Authorization={CWB_API_KEY}&locationName={city_map}"
     try:
-        print("📡 Request URL:", url)
-        res = requests.get(url, verify=False)  # disable SSL verify for workaround
-        print("📥 Response:", res.text)
-        data = res.json()
-        elements = data["records"]["locations"][0]["location"][0]["weatherElement"]
-        time_slots = elements[0]["time"][:7]
-        forecast = ""
-        for t in time_slots:
-            start = t["startTime"]
-            end = t["endTime"]
-            desc = t["elementValue"][0]["value"]
-            forecast += f"{start} ~ {end}: {desc}\n"
-        return forecast
+        for entry in data["entry"]:
+            for msg in entry["messaging"]:
+                sender_id = msg["sender"]["id"]
+                if "message" in msg and "text" in msg["message"]:
+                    text = msg["message"]["text"]
+                    if "氣象預報" in text:
+                        reply = "請告訴我您要查詢的縣市，例如「台北市」"
+                    else:
+                        reply = get_weather(text)
+                    send_message(sender_id, reply)
     except Exception as e:
-        return f"❌ 取得氣象資料失敗：{e}"
+        print(f"❌ Webhook 發生錯誤：{str(e)}")
+    return "ok"
+
+def send_message(recipient_id, text):
+    url = "https://graph.facebook.com/v17.0/me/messages"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": text},
+        "messaging_type": "RESPONSE"
+    }
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    requests.post(url, headers=headers, params=params, json=payload)
