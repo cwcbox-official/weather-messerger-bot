@@ -8,7 +8,7 @@ VERIFY_TOKEN = os.getenv('VERIFY_TOKEN')
 PAGE_TOKEN = os.getenv('PAGE_ACCESS_TOKEN')
 CWB_API_KEY = os.getenv('CWB_API_KEY')
 
-CWB_BASE = 'https://opendata.cwb.gov.tw/api/v1/rest/datastore/F-D0047-089'
+CWB_BASE = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089'
 
 SUPPORTED = ["台北市","新北市","桃園市","台中市","台南市","高雄市",
              "基隆市","新竹市","嘉義市","新竹縣","苗栗縣","彰化縣","南投縣",
